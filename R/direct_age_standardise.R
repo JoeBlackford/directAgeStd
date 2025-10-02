@@ -38,7 +38,7 @@ direct_age_standardise <- function(data, var, ageband, observed, population, mul
     ) %>%
     dplyr::group_by(!!var) %>%
     dplyr::summarise(
-      das_rate = sum(expected, na.rm = TRUE) / sum(StdPopulation, na.rm = TRUE),
+      das_rate = sum(expected, na.rm = TRUE) / 100000,
       variance = sum(var_component, na.rm = TRUE) / (sum(StdPopulation, na.rm = TRUE)^2),
       .groups = "drop"
     ) %>%
