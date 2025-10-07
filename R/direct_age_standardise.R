@@ -5,7 +5,7 @@
 #' Handles multiple grouping variables.
 #'
 #' @param data Dataframe with observed values and population
-#' @param var Vector of grouping variable names (strings) e.g. c("Region", "Sex")
+#' @param var Vector of grouping variable names (strings), e.g. c("Region", "Sex")
 #' @param ageband Column name (string) specifying age bands
 #' @param observed Column name (string) with observed counts
 #' @param population Column name (string) with denominator population
@@ -15,11 +15,23 @@
 #' @export
 direct_age_standardise <- function(data, var, ageband, observed, population, multiplier = 1000) {
 
-  # Tidy-eval symbols
+  if (!is.character(var)) {
+    stop("`var` must be a character vector of column names, e.g. c('PCN', 'FinancialYear').", call. = FALSE)
+  }
+  if (!is.character(ageband) || length(ageband) != 1) {
+    stop("`ageband` must be a single column name as a string, e.g. 'AgeBand'.", call. = FALSE)
+  }
+  if (!is.character(observed) || length(observed) != 1) {
+    stop("`observed` must be a single column name as a string, e.g. 'Value'.", call. = FALSE)
+  }
+  if (!is.character(population) || length(population) != 1) {
+    stop("`population` must be a single column name as a string, e.g. 'Population'.", call. = FALSE)
+  }
+
   var_syms <- rlang::syms(var)
-  ageband_sym <- rlang::ensym(ageband)
-  observed_sym <- rlang::ensym(observed)
-  population_sym <- rlang::ensym(population)
+  ageband_sym <- rlang::sym(ageband)
+  observed_sym <- rlang::sym(observed)
+  population_sym <- rlang::sym(population)
 
   out <- data %>%
     dplyr::group_by(dplyr::across(!!!var_syms), !!ageband_sym) %>%
@@ -45,20 +57,17 @@ direct_age_standardise <- function(data, var, ageband, observed, population, mul
     ) %>%
     dplyr::mutate(
       se = sqrt(variance),
-      # Byar confidence intervals
       lower = ifelse(das_rate > 0,
-                     das_rate * (1 - 1.96 / sqrt(das_rate * sum(StdPopulation, na.rm = TRUE))),
+                     das_rate * (1 - 1.96 / sqrt(das_rate * sum(ref_population$StdPopulation))),
                      0),
       upper = ifelse(das_rate > 0,
-                     das_rate * (1 + 1.96 / sqrt(das_rate * sum(StdPopulation, na.rm = TRUE))),
+                     das_rate * (1 + 1.96 / sqrt(das_rate * sum(ref_population$StdPopulation))),
                      0),
-      lower = pmax(0, lower),
-      # Apply multiplier
+      lower = pmax(0, lower),  # prevent negatives
       das_rate = round(multiplier * das_rate, 2),
       lower = round(multiplier * lower, 2),
       upper = round(multiplier * upper, 2)
     ) %>%
     dplyr::select(dplyr::all_of(var), das_rate, lower, upper)
 
-  return(out)
-}
+  return(out)}
